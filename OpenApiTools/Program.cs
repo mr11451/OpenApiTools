@@ -33,21 +33,20 @@ var root = doc.RootElement;
 
 Dictionary<string, string> generatedDtos = new();
 
-// パスごとにコントローラーを生成
+// 1つのコントローラーに全てのアクションをまとめる
+var sb = new StringBuilder();
+sb.AppendLine("using Microsoft.AspNetCore.Mvc;");
+sb.AppendLine("using Microsoft.AspNetCore.Http;");
+sb.AppendLine();
+sb.AppendLine("[ApiController]");
+sb.AppendLine("[Route(\"api/[controller]\")]");
+sb.AppendLine("public class GeneratedController : ControllerBase");
+sb.AppendLine("{");
+
 if (root.TryGetProperty("paths", out var paths))
 {
     foreach (var path in paths.EnumerateObject())
     {
-        string controllerName = GetControllerName(path.Name);
-        var sb = new StringBuilder();
-        sb.AppendLine("using Microsoft.AspNetCore.Mvc;");
-        sb.AppendLine("using Microsoft.AspNetCore.Http;"); // 追加
-        sb.AppendLine();
-        sb.AppendLine("[ApiController]");
-        sb.AppendLine($"[Route(\"api/[controller]\")]");
-        sb.AppendLine($"public class {controllerName} : ControllerBase");
-        sb.AppendLine("{");
-
         foreach (var method in path.Value.EnumerateObject())
         {
             string actionName = GetActionName(method.Name, path.Name);
@@ -161,12 +160,13 @@ if (root.TryGetProperty("paths", out var paths))
             sb.AppendLine("    }");
             sb.AppendLine();
         }
-
-        sb.AppendLine("}");
-
-        File.WriteAllText(Path.Combine(outputDir, $"{controllerName}.cs"), sb.ToString());
     }
 }
+
+sb.AppendLine("}");
+
+// 1ファイルのみ出力
+File.WriteAllText(Path.Combine(outputDir, "GeneratedController.cs"), sb.ToString());
 
 // 型マッピング
 string MapOpenApiType(string type) => type switch
@@ -235,12 +235,6 @@ string GenerateDtoFromSchema(JsonElement schema, string dtoName)
     File.WriteAllText(Path.Combine(dtoDir, $"{dtoName}.cs"), sb.ToString());
     generatedDtos[dtoName] = dtoName;
     return dtoName;
-}
-
-string GetControllerName(string path)
-{
-    var match = Regex.Match(path, @"^/?(\w+)");
-    return match.Success ? $"{Capitalize(match.Groups[1].Value)}Controller" : "DefaultController";
 }
 
 string GetActionName(string method, string path)
